@@ -1,6 +1,6 @@
 services:
   infra-vector:
-    image: wmb-prod.cr.cloud.ru/infra/monitoring/cloud-vector:latest
+    image: swarmdeployorg/cloud-vector:v0.1.0
     command: ["--config", "/etc/vector/vector.toml"]
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
