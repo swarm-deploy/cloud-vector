@@ -1,0 +1,142 @@
+# --- Source: Docker logs с автоматическим обогащением метаданными ---
+[sources.docker_logs]
+  type = "docker_logs"
+  # Автоматически добавляет: container_id, container_name, image, labels и т.д.
+
+# --- Transform: Форматирование каждого лога под схему облачного API ---
+[transforms.format_for_cloud]
+  type = "remap"
+  inputs = ["docker_logs"]
+  source = """
+    # === Timestamp: RFC3339 с таймзоной ===
+    timestamp_value = if exists(.timestamp) {
+      .timestamp
+    } else if exists(."@timestamp") {
+      ."@timestamp"
+    } else {
+      now()
+    }
+    .timestamp = format_timestamp!(timestamp_value, "%+")
+
+    # === Required IDs из переменных окружения ===
+    .projectId = get_env_var!("CLOUDRU_PROJECT_ID")
+    .logGroupId = get_env_var!("CLOUDRU_LOG_GROUP_ID")
+
+    .serviceName = .label."com.docker.compose.service"
+    if .serviceName == null {
+       .serviceName = .label."com.docker.swarm.service.name"
+    }
+    if .serviceName == null {
+        .serviceName = .container_id
+    }
+
+    containerLogGroupId = .label."logging.group_id"
+    if containerLogGroupId != null {
+        .logGroupId = containerLogGroupId
+    }
+
+    # === Instance ID: Container ID (уникален для каждой задачи в Swarm) ===
+    .instanceId = if exists(.container_id) {
+      .container_id
+    } else {
+      uuid_v4()
+    }
+
+    # === Labels: Вложенный объект с метаданными ===
+    class_name_value = if exists(.labels."class_name") {
+      .labels."class_name"
+    } else if exists(.labels."className") {
+      .labels."className"
+    } else if exists(.logger) {
+      .logger
+    } else {
+      "application"
+    }
+    
+    .labels = {
+      "className": class_name_value,
+    }
+
+    # === Message: Основной текст лога ===
+    message_value = if exists(.message) {
+      .message
+    } else if exists(.log) {
+      .log
+    } else if exists(.msg) {
+      .msg
+    } else {
+      "empty log entry"
+    }
+
+    .traceId = uuid_v4()
+    .message = to_string!(message_value)
+
+    .level = "INFO"
+
+    # === jsonMessage: Извлекаем ID запроса и уровень лога ===
+    .jsonMessage = ""
+
+    if is_string(.message) && length(.message) > 0 {
+      message_first_char = slice!(.message, 0, 1)
+      if message_first_char == "{" {
+        .jsonMessage = .message
+
+         parsed, err = parse_json(.message)
+         if err == null {
+           req_id = parsed."x-request-id"
+           if req_id != null {
+             .traceId = req_id
+           }
+
+           log_level = parsed."level"
+           if log_level != null {
+             .level = log_level
+           }
+         }
+      }
+    }
+
+    # === Cleanup: Создаем новый объект только с нужными полями ===
+    # Вместо удаления лишних полей, создаем новый объект с нужными
+    result = {
+      "timestamp": .timestamp,
+      "level": .level,
+      "projectId": .projectId,
+      "logGroupId": .logGroupId,
+      "traceId": .traceId,
+      "serviceName": .serviceName,
+      "instanceId": .instanceId,
+      "labels": .labels,
+      "message": .message,
+      "jsonMessage": .jsonMessage
+    }
+    . = result
+  """
+
+
+
+# --- Sink: HTTP endpoint с батчингом ---
+[sinks.cloud_logging]
+  type = "http"
+  inputs = ["format_for_cloud"]
+  uri = "http://localhost:8080/logs"
+  method = "post"
+  encoding.codec = "json"
+
+  [sinks.cloud_logging.headers]
+    Content-Type = "application/json"
+
+  # Батчим логи в массивы для эффективности
+  [sinks.cloud_logging.batch]
+    max_events = 100
+    flush_period_secs = 5
+
+
+  [sinks.cloud_logging.buffer]
+    type = "memory"
+    max_events = 1000
+
+  [sinks.cloud_logging.request]
+    retry_attempts = 3
+    retry_initial_backoff_secs = 1
+    timeout_secs = 30

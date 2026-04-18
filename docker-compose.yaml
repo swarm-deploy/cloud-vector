@@ -1,0 +1,47 @@
+services:
+  infra-vector:
+    image: wmb-prod.cr.cloud.ru/infra/monitoring/cloud-vector:latest
+    command: ["--config", "/etc/vector/vector.toml"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    deploy:
+      mode: global
+      restart_policy:
+        condition: on-failure
+    environment:
+      - HOSTNAME={{.Node.Hostname}}
+      - CLOUDRU_IAM_ADDRESS=iam.api.cloud.ru:443
+      - CLOUDRU_IAM_CLIENT_ID=/run/secrets/infra-vector-iam-client-id
+      - CLOUDRU_IAM_CLIENT_SECRET=/run/secrets/infra-vector-iam-client-secret
+      - CLOUDRU_LOGGING_ENDPOINT=https://logging.api.cloud.ru/api/v1/logs
+      - CLOUDRU_PROJECT_ID=<cloudru-project-id>
+      - CLOUDRU_LOG_GROUP_ID=<cloudru-log-group-id>
+    secrets:
+      - vector-cloudru-iam-client-id
+      - vector-cloudru-iam-client-secret
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    networks:
+      - monitoring
+    command: --path.rootfs=/host
+    volumes:
+      - /:/host:ro,rslave
+    labels:
+      - logging.group_id=<cloudru-log-group-id>
+    deploy:
+      mode: global
+      resources:
+        limits:
+          memory: 256M
+      labels:
+        - org.group=monitoring
+        - node-exporter=true
+        - prometheus.port=9100
+
+secrets:
+  vector-cloudru-iam-client-id:
+    external: true
+
+  vector-cloudru-iam-client-secret:
+    external: true
