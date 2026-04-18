@@ -1,8 +1,14 @@
 # cloud-vector
 
-`cloud-vector` - proxy for [Vector](https://github.com/vectordotdev/vector) for support cloud logging, focused on Docker Swarm.
+`cloud-vector` - proxy for [Vector](https://github.com/vectordotdev/vector) for support cloud logging, focused on Docker containers.
 
-`cloud-vector` supports send logs per log group through label `logging.group_id`
+**cloud-vector** supports send logs per log group through label `logging.group_id`
+
+## Vector configuration
+
+Configuration for Vector described in [vector.yaml](./vector.toml) and included:
+- Discovery of Docker containers
+- Extract log level and `x-request-id`
 
 ## Use with Cloud.ru Logging
 
