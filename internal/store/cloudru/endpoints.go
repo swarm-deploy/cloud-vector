@@ -29,12 +29,12 @@ func getEndpoints(ctx context.Context, url string) (*EndpointsResponse, error) {
 
 	slog.InfoContext(ctx, "get endpoints from cloud.ru", slog.String("discovery_url", url))
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := http.DefaultClient.Do(req) //nolint:gosec // request URL comes from trusted configuration
 	if err != nil {
 		return nil, fmt.Errorf("get cloud.ru endpoints: %w", err)
 	}
 	defer func() {
-		if cerr := resp.Body.Close(); err != nil {
+		if cerr := resp.Body.Close(); cerr != nil {
 			slog.Error("failed to close response body", slog.Any("err", cerr))
 		}
 	}()

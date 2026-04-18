@@ -57,7 +57,7 @@ func (s *Store) Push(ctx context.Context, logs []interface{}) error {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+token)
 
-	resp, err := s.httpClient.Do(req)
+	resp, err := s.httpClient.Do(req) //nolint:gosec // request URL comes from trusted configuration
 	if err != nil {
 		return fmt.Errorf("send http request to logging: %w", err)
 	}

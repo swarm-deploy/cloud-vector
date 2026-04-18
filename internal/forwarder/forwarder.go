@@ -22,7 +22,7 @@ func ForwardRequest(store contracts.Store) http.HandlerFunc {
 
 		// Парсим входящий JSON (массив логов)
 		var logs []interface{}
-		if err := json.Unmarshal(reqBody, &logs); err != nil {
+		if err = json.Unmarshal(reqBody, &logs); err != nil {
 			slog.Error("[proxy][handler] failed to parse JSON", slog.Any("err", err), slog.Any("body", string(reqBody)))
 
 			http.Error(writer, "Bad Request: invalid JSON", http.StatusBadRequest)

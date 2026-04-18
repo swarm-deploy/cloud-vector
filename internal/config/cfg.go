@@ -20,7 +20,7 @@ type Cloudru struct {
 	IAM struct {
 		Address      string `env:"ADDRESS"`
 		ClientID     string `env:"CLIENT_ID,required,file,notEmpty"`
-		ClientSecret string `env:"CLIENT_SECRET,required,file,notEmpty"`
+		ClientSecret string `env:"CLIENT_SECRET,required,file,notEmpty" json:"-"`
 	} `envPrefix:"IAM_"`
 
 	DiscoveryURL string `env:"DISCOVERY_URL" envDefault:"https://api.cloud.ru/endpoints"`

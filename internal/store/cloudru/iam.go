@@ -5,12 +5,12 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"github.com/swarm-deploy/cloud-vector/internal/config"
 	"log/slog"
 	"sync"
 	"time"
 
 	iamAuthV1 "github.com/cloudru-tech/iam-sdk/api/auth/v1"
+	"github.com/swarm-deploy/cloud-vector/internal/config"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -42,7 +42,7 @@ func newIAM(ctx context.Context, cfg config.Cloudru) (*iam, error) {
 		address = iamEndpoint.Address
 	}
 
-	iamConn, err := grpc.NewClient(cfg.IAM.Address, grpc.WithTransportCredentials(
+	iamConn, err := grpc.NewClient(address, grpc.WithTransportCredentials(
 		credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS13}),
 	))
 	if err != nil {

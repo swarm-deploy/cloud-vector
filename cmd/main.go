@@ -17,7 +17,15 @@ import (
 	"github.com/caarlos0/env/v11"
 )
 
-const initStoreTimeout = time.Minute
+const (
+	initStoreTimeout = time.Minute
+	serverPort       = 8080
+	serverAddr       = ":8080"
+	readTimeout      = 10 * time.Second
+	writeTimeout     = 10 * time.Second
+	idleTimeout      = 120 * time.Second
+	shutdownTimeout  = 30 * time.Second
+)
 
 func main() {
 	var cfg config.Config
@@ -41,19 +49,19 @@ func main() {
 
 	// Создаем HTTP сервер
 	server := &http.Server{
-		Addr:    ":8080",
+		Addr:    serverAddr,
 		Handler: http.DefaultServeMux,
 		// Таймауты для graceful shutdown
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  120 * time.Second,
+		ReadTimeout:  readTimeout,
+		WriteTimeout: writeTimeout,
+		IdleTimeout:  idleTimeout,
 	}
 
 	// Запускаем сервер в отдельной горутине
 	go func() {
-		slog.Info("[proxy] server started", "port", 8080, "target", cfg.Cloudru.Logging.Endpoint)
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			slog.Error("[proxy] server failed", "error", err)
+		slog.Info("[proxy] server started", "port", serverPort, "target", cfg.Cloudru.Logging.Endpoint)
+		if serveErr := server.ListenAndServe(); serveErr != nil && serveErr != http.ErrServerClosed {
+			slog.Error("[proxy] server failed", "error", serveErr)
 			os.Exit(1)
 		}
 	}()
@@ -66,16 +74,17 @@ func main() {
 	slog.Info("[proxy] shutting down server gracefully...")
 
 	// Создаем контекст с таймаутом для graceful shutdown
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 
 	// Останавливаем сервер, давая время для завершения активных запросов
-	if err := server.Shutdown(ctx); err != nil {
+	if err = server.Shutdown(ctx); err != nil {
 		slog.Error("[proxy] server forced to shutdown", "error", err)
+		cancel()
 		os.Exit(1)
 	}
+	cancel()
 
-	slog.Info("[proxy] server exited")
+	slog.Info("[proxy] server exited", "addr", serverAddr)
 }
 
 func initStore(cfg config.Config) (contracts.Store, error) {
