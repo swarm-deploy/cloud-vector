@@ -5,10 +5,9 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
+	"github.com/artarts36/go-entrypoint"
 	"github.com/swarm-deploy/cloud-vector/internal/config"
 	"github.com/swarm-deploy/cloud-vector/internal/forwarder"
 	"github.com/swarm-deploy/cloud-vector/internal/store/cloudru"
@@ -45,7 +44,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	http.HandleFunc("/logs", forwarder.ForwardRequest(cloudruStore))
+	forward := forwarder.NewForwarder(cloudruStore)
+
+	http.HandleFunc("/logs", forward.Forward)
 
 	// Создаем HTTP сервер
 	server := &http.Server{
@@ -57,34 +58,23 @@ func main() {
 		IdleTimeout:  idleTimeout,
 	}
 
-	// Запускаем сервер в отдельной горутине
-	go func() {
-		slog.Info("[proxy] server started", "port", serverPort, "target", cfg.Cloudru.Logging.Endpoint)
-		if serveErr := server.ListenAndServe(); serveErr != nil && serveErr != http.ErrServerClosed {
-			slog.Error("[proxy] server failed", "error", serveErr)
-			os.Exit(1)
-		}
-	}()
+	err = entrypoint.Run([]entrypoint.Entrypoint{
+		{
+			Name: "forwarder",
+			Run: func(context.Context) error {
+				return nil
+			},
+			Stop: func(ctx context.Context) error {
+				forward.Stop()
 
-	// Ожидаем сигналы для graceful shutdown
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
-
-	slog.Info("[proxy] shutting down server gracefully...")
-
-	// Создаем контекст с таймаутом для graceful shutdown
-	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
-
-	// Останавливаем сервер, давая время для завершения активных запросов
-	if err = server.Shutdown(ctx); err != nil {
-		slog.Error("[proxy] server forced to shutdown", "error", err)
-		cancel()
-		os.Exit(1)
+				return nil
+			},
+		},
+		entrypoint.HTTPServer("server", server),
+	})
+	if err != nil {
+		slog.Error("[main] failed to entrypoints", slog.Any("err", err))
 	}
-	cancel()
-
-	slog.Info("[proxy] server exited", "addr", serverAddr)
 }
 
 func initStore(cfg config.Config) (contracts.Store, error) {

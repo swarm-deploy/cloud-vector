@@ -6,6 +6,10 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     deploy:
       mode: global
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.10'
       restart_policy:
         condition: on-failure
     environment:
