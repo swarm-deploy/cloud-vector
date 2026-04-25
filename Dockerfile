@@ -18,7 +18,7 @@ FROM alpine:3.20
 
 WORKDIR /app
 
-RUN wget -O vector.tar.gz https://github.com/vectordotdev/vector/releases/download/v0.53.0/vector-0.53.0-x86_64-unknown-linux-musl.tar.gz && \
+RUN wget -O vector.tar.gz https://github.com/vectordotdev/vector/releases/download/v0.55.0/vector-0.55.0-x86_64-unknown-linux-musl.tar.gz && \
     tar -xvf vector.tar.gz && \
     cp vector-x86_64-unknown-linux-musl/bin/vector /usr/bin/vector && \
     cp -R vector-x86_64-unknown-linux-musl/etc/systemd /etc/systemd && \

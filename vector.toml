@@ -123,9 +123,6 @@
   method = "post"
   encoding.codec = "json"
 
-  [sinks.cloud_logging.headers]
-    Content-Type = "application/json"
-
   # Батчим логи в массивы для эффективности
   [sinks.cloud_logging.batch]
     max_events = 100
